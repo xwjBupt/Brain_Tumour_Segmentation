@@ -20,18 +20,16 @@ import sys
 # OUTPUT:
 #   Preprocessed data stored in compressed npz files in the save_preprocessed_path
 ########################################################################################################################
-
-raw_data_path = sys.argv[1]
-save_preprocessed_data_path = sys.argv[2]
-crop_data = int(sys.argv[3])
-train_data = int(sys.argv[4])
+state = 'HGG'
+raw_data_path = '/Users/xwj/Downloads/BT/BraTs2018/MICCAI_BraTS_2018_Data_Training/'+state
+save_preprocessed_data_path ='/Users/xwj/Downloads/BT/BraTs2018/processed'
+crop_data = int(1)
+train_data = int(1)
 
 # Create the folder to store preprocessed data in, exit if folder already exists.
 if not os.path.isdir(save_preprocessed_data_path):
     os.mkdir(save_preprocessed_data_path)
-else:
-    print("Folder to store preprocessed images in already exists")
-    sys.exit()
+
 
 # Get folder paths and ids of where the raw scans are stored
 folder_paths = []
@@ -44,7 +42,7 @@ i = 1
 for patient in range(len(folder_paths)):
     data_folder = folder_paths[patient]
     data_id = folder_IDS[patient]
-    os.mkdir(os.path.join(save_preprocessed_data_path, data_id))
+    os.makedirs(os.path.join(save_preprocessed_data_path, data_id+'_'+state),exist_ok=True)
 
     # Load in the the different modalities
     img_t1 = nib.load(os.path.join(data_folder, data_id) + "_t1.nii.gz").get_fdata()
@@ -110,9 +108,9 @@ for patient in range(len(folder_paths)):
         new_img[brain_region] = (new_img[brain_region] - Minimum) / Range  # Scale to be between 0 and 1
         X.append(new_img.astype('float32'))
 
-    np.savez_compressed("{}/{}/{}_scans".format(save_preprocessed_data_path,data_id, data_id), X)
+    np.savez_compressed("{}/{}/{}_scans".format(save_preprocessed_data_path,data_id+'_'+state, data_id+'_'+state), data = X)
     if train_data:
-        np.savez_compressed("{}/{}/{}_mask".format(save_preprocessed_data_path, data_id, data_id), img_seg)
+        np.savez_compressed("{}/{}/{}_mask".format(save_preprocessed_data_path, data_id+'_'+state, data_id+'_'+state), data = img_seg)
     print("Preprocessed patient {}/{} scans".format(i, len(folder_paths)))
     i = i + 1
 

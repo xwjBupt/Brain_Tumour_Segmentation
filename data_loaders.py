@@ -1,6 +1,9 @@
 import numpy as np
 from torch.utils import data
 import random
+import glob
+import os
+
 
 ##########################################################################
 # Dataset class that feeds data into a data generator.
@@ -27,7 +30,7 @@ class Dataset(data.Dataset):
     def __getitem__(self, index):
         data_folder = self.folder_paths[index]
         data_id = self.folder_ids[index]
-        X = np.load(r"{}/{}_scans.npz".format(data_folder, data_id))['arr_0']
+        X = np.load(glob.glob(r"{}/{}*_scans.npz".format(data_folder, data_id))[0])['data']
         x_orig, y_orig, z_orig = 0, 0, 0
 
         # Randomly sample 128x128x128 patch
@@ -41,10 +44,20 @@ class Dataset(data.Dataset):
         X = X[:, x_orig: x_orig + 128, y_orig: y_orig + 128, z_orig: z_orig + 128]
 
         if self.seg_provided:
-            y = np.load(r"{}/{}_mask.npz".format(data_folder, data_id))['arr_0']
+            y = np.load(glob.glob(r"{}/{}*_mask.npz".format(data_folder, data_id))[0])['data']
             y = y[x_orig: x_orig + 128, y_orig: y_orig + 128, z_orig: z_orig + 128]
             return X, y
         else:
             return X
 
 
+if __name__ == '__main__':
+    folder_paths = []
+    folder_ids = []
+    preprocessed_data_path = '/Users/xwj/Downloads/BT/BraTs2018/processed'
+    for subdir in os.listdir(preprocessed_data_path):
+        folder_paths.append(os.path.join(preprocessed_data_path, subdir))
+        folder_ids.append(subdir)
+    D = Dataset(folder_paths, folder_id=folder_ids)
+    for i in enumerate(D):
+        print('Done')
