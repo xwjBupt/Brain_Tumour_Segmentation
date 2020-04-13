@@ -20,9 +20,9 @@ import sys
 # OUTPUT:
 #   Preprocessed data stored in compressed npz files in the save_preprocessed_path
 ########################################################################################################################
-state = 'HGG'
-raw_data_path = '/Users/xwj/Downloads/BT/BraTs2018/MICCAI_BraTS_2018_Data_Training/'+state
-save_preprocessed_data_path ='/Users/xwj/Downloads/BT/BraTs2018/processed'
+state = 'LGG'
+raw_data_path = '/home/xwj/Brats2018/'+state
+save_preprocessed_data_path ='/home/xwj/Brats2018/processed'
 crop_data = int(1)
 train_data = int(1)
 

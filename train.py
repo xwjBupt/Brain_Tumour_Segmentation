@@ -15,11 +15,11 @@ import sys
 import copy
 from torchvision.transforms import ToTensor
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('agg')
 from matplotlib import pyplot as plt
 from collections import OrderedDict
 from model_utils.utils import expand_as_one_hot
-
+import time
 #Specify Which Model and Loss to Import
 from models import UNet3D
 from losses import GeneralizedDiceLoss
@@ -89,18 +89,18 @@ def gen_subplot(scans_orig, scans_aug, mask, prediction, epoch_nr, iteration, au
 # To specify:
 
 # Paths where to load data from and save the models to
-preprocessed_data_path = r"/home/artur-cmic/Desktop/UCL/Data_Aug_Experiments/Preprocessed"
-save_model_path = r"/home/artur-cmic/Desktop/UCL/Data_Aug_Experiments"
+preprocessed_data_path = r'/home/xwj/Brats2018/processed'
+save_model_path = r"/home/xwj/Brain_Tumour_Segmentation/First"
 
 # Specify which data augmentations to use on the fly (each applied with 50% probability). Possible values:
 # ['Elastic', 'Flip', 'Rotate','Gamma','Scale', 'Noise']. Create empty array if none wanted.
-augmentations_to_use = [] #'Flip', 'Rotate', 'Gamma', 'Scale', 'Noise']
-
+augmentations_to_use = ['Flip'] #'Flip', 'Rotate', 'Gamma', 'Scale', 'Noise']
+timestamp = time.strftime("%m-%d_%H-%M", time.localtime())
 # Name of the run
-run_name = "temp"
+run_name = "temp_"+timestamp
 
 # Training Parameters
-batch_size = 2
+batch_size = 4
 params = {'batch_size': batch_size,
           'shuffle': True,
           'num_workers': 4}
@@ -121,8 +121,8 @@ if not os.path.isdir(save_model_path):
     os.mkdir(save_model_path)
 
 # Use GPU
-use_cuda = torch.cuda.is_available()
-device = torch.device("cuda:0" if use_cuda else "cpu")
+# use_cuda = torch.cuda.is_available()
+# device = torch.device("cuda:0" if use_cuda else "cpu")
 torch.backends.cudnn.benchmark = True
 
 # Get paths and names (IDS) of folders that store the multimodal training data
@@ -141,6 +141,7 @@ random.shuffle(folder_ids)
 # Setup KFold Cross Validation
 kf = KFold(n_splits=n_folds, shuffle=False)  # Shuffle=false to get the same shuffling scheme every run
 fold_nr = 1
+os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 
 # Training Loop
 for fold in kf.split(folder_paths):
@@ -154,18 +155,18 @@ for fold in kf.split(folder_paths):
 
     # Model
     model = UNet3D(in_channels, n_classes, False, base_n_filter, 'crg', 8)
-    if torch.cuda.device_count() > 1:
-        print("Let's use", torch.cuda.device_count(), "GPUs!")
-        model = nn.DataParallel(model)
+#     if torch.cuda.device_count() > 1:
+#         print("Let's use", torch.cuda.device_count(), "GPUs!")
+#         model = nn.DataParallel(model)
 
     #If training was interrupted (need to change epoch loop range as well):
     #checkpoint = torch.load("/home/ajurgens/Brats2019/Model_Saves_V4/Fold_1_Epoch_140.tar")
     #model.load_state_dict(checkpoint['model_state_dict'])
 
     # Loss and optimizer
-    criterion = GeneralizedDiceLoss(1e-5, None, None, False).to(device)
+    criterion = GeneralizedDiceLoss(1e-5, None, None, False).cuda()
     optimizer = torch.optim.Adam(model.parameters(), weight_decay=10**-7)
-    model.to(device)
+    model.cuda()
 
     #If training was interrupted (need to change epoch loop range as well):
     #model.train()
@@ -190,7 +191,7 @@ for fold in kf.split(folder_paths):
                 labels = labels[:, x_orig: x_orig + 128, y_orig: y_orig + 128, z_orig: z_orig + 128]
 
             # Transfer batch and labels to GPU
-            scans, masks = batch.to(device), labels.to(device)
+            scans, masks = batch.cuda(), labels.cuda()
             # Run through network
             output = model(scans)
 
@@ -216,7 +217,7 @@ for fold in kf.split(folder_paths):
         valid_losses = []
         with torch.no_grad():
             for batch, labels in valid_loader:
-                scans, masks = batch.to(device), labels.to(device)
+                scans, masks = batch.cuda(), labels.cuda()
                 output = model(scans)
                 masks = expand_as_one_hot(masks, n_classes)
                 valid_loss = criterion(output, masks)
