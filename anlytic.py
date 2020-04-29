@@ -62,8 +62,8 @@ def densiGt(mask, mode='all', sigma=0.75):
 
 
 if __name__ == '__main__':
-    root = '/Users/xwj/Documents/Programm/Brain_Tumour_Segmentation/'
-    maskfiles = glob.glob(root + '*mask.npz')
+    root = '/home/xwj/Brats2018/processed/'
+    maskfiles = glob.glob(root + '*/*mask.npz')
     for maskfile in tqdm(maskfiles):
         print(maskfile)
         WT_density_mask = {'avg': [], 'bs': [], 'ss': []}
@@ -99,9 +99,9 @@ if __name__ == '__main__':
         ET_density_mask['bs'] = torch.cat(ET_density_mask['bs'], 2).numpy()
         ET_density_mask['ss'] = torch.cat(ET_density_mask['ss'], 2).numpy()
 
-        ET_density_mask['avg'] = torch.cat(ET_density_mask['avg'], 2).numpy()
-        ET_density_mask['bs'] = torch.cat(ET_density_mask['bs'], 2).numpy()
-        ET_density_mask['ss'] = torch.cat(ET_density_mask['ss'], 2).numpy()
+        TC_density_mask['avg'] = torch.cat(TC_density_mask['avg'], 2).numpy()
+        TC_density_mask['bs'] = torch.cat(TC_density_mask['bs'], 2).numpy()
+        TC_density_mask['ss'] = torch.cat(TC_density_mask['ss'], 2).numpy()
 
         np.savez_compressed(maskfile.replace('.npz', '_density.npz'), WT_density_mask=WT_density_mask,
                             TC_density_mask=TC_density_mask, ET_density_mask=ET_density_mask, rawmask=mask)
