@@ -15,42 +15,44 @@ import sys
 import copy
 from torchvision.transforms import ToTensor
 import matplotlib
+
 matplotlib.use('agg')
 from matplotlib import pyplot as plt
 from collections import OrderedDict
 from model_utils.utils import expand_as_one_hot
 import time
-#Specify Which Model and Loss to Import
+# Specify Which Model and Loss to Import
 from models import UNet3D
 from losses import GeneralizedDiceLoss
+
 
 def gen_subplot(scans_orig, scans_aug, mask, prediction, epoch_nr, iteration, aug_used):
     _, indices = prediction.max(0)
     indices = indices.cpu().detach().numpy()
     prediction = prediction.cpu().detach().numpy()
     img_size = indices.shape[2]
-    slices = [int(img_size/4), int(img_size/4*2), int(img_size/4*3)] # Slices to display
+    slices = [int(img_size / 4), int(img_size / 4 * 2), int(img_size / 4 * 3)]  # Slices to display
     plt.figure()
-    for row in range(1,4):
+    for row in range(1, 4):
         plt.subplot(3, 8, 1 + (row - 1) * 8)
         # Showing the t1ce scan
         plt.imshow(scans_orig[1, :, :, slices[row - 1]], cmap='gray')
         plt.ylabel("Slice {}".format(slices[row - 1]))
         if row == 1:
             plt.title('Orig')
-        plt.subplot(3, 8, 2 + (row-1)*8)
-        #Showing the t1ce scan
-        plt.imshow(scans_aug[1, :, :, slices[row-1]], cmap='gray')
-        plt.ylabel("Slice {}".format(slices[row-1]))
-        if row==1:
+        plt.subplot(3, 8, 2 + (row - 1) * 8)
+        # Showing the t1ce scan
+        plt.imshow(scans_aug[1, :, :, slices[row - 1]], cmap='gray')
+        plt.ylabel("Slice {}".format(slices[row - 1]))
+        if row == 1:
             plt.title('Aug: ' + aug_used)
-        plt.subplot(3, 8, 3 + (row-1)*8)
-        plt.imshow(mask[:, :, slices[row-1]])
-        if row==1:
+        plt.subplot(3, 8, 3 + (row - 1) * 8)
+        plt.imshow(mask[:, :, slices[row - 1]])
+        if row == 1:
             plt.title('Mask')
-        plt.subplot(3, 8, 4 + (row-1)*8)
-        plt.imshow(prediction[0,:,:,slices[row-1]])
-        if row==1:
+        plt.subplot(3, 8, 4 + (row - 1) * 8)
+        plt.imshow(prediction[0, :, :, slices[row - 1]])
+        if row == 1:
             plt.title('Cl 0')
 
         plt.subplot(3, 8, 5 + (row - 1) * 8)
@@ -69,7 +71,7 @@ def gen_subplot(scans_orig, scans_aug, mask, prediction, epoch_nr, iteration, au
             plt.title('Cl 3')
 
         plt.subplot(3, 8, 8 + (row - 1) * 8)
-        plt.imshow(indices[:, :, slices[row-1]])
+        plt.imshow(indices[:, :, slices[row - 1]])
         if row == 1:
             plt.title('Pred')
     plt.suptitle("Epoch {} Iteration {}".format(str(epoch_nr), str(iteration)))
@@ -94,10 +96,10 @@ save_model_path = r"/home/xwj/Brain_Tumour_Segmentation/First"
 
 # Specify which data augmentations to use on the fly (each applied with 50% probability). Possible values:
 # ['Elastic', 'Flip', 'Rotate','Gamma','Scale', 'Noise']. Create empty array if none wanted.
-augmentations_to_use = ['Flip'] #'Flip', 'Rotate', 'Gamma', 'Scale', 'Noise']
+augmentations_to_use = ['Flip']  # 'Flip', 'Rotate', 'Gamma', 'Scale', 'Noise']
 timestamp = time.strftime("%m-%d_%H-%M", time.localtime())
 # Name of the run
-run_name = "temp_"+timestamp
+run_name = "temp_" + timestamp
 
 # Training Parameters
 batch_size = 4
@@ -141,7 +143,7 @@ random.shuffle(folder_ids)
 # Setup KFold Cross Validation
 kf = KFold(n_splits=n_folds, shuffle=False)  # Shuffle=false to get the same shuffling scheme every run
 fold_nr = 1
-os.environ["CUDA_VISIBLE_DEVICES"] = '5'
+#os.environ["CUDA_VISIBLE_DEVICES"] = '5'
 
 # Training Loop
 for fold in kf.split(folder_paths):
@@ -155,21 +157,21 @@ for fold in kf.split(folder_paths):
 
     # Model
     model = UNet3D(in_channels, n_classes, False, base_n_filter, 'crg', 8)
-#     if torch.cuda.device_count() > 1:
-#         print("Let's use", torch.cuda.device_count(), "GPUs!")
-#         model = nn.DataParallel(model)
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = nn.DataParallel(model)
 
-    #If training was interrupted (need to change epoch loop range as well):
-    #checkpoint = torch.load("/home/ajurgens/Brats2019/Model_Saves_V4/Fold_1_Epoch_140.tar")
-    #model.load_state_dict(checkpoint['model_state_dict'])
+    # If training was interrupted (need to change epoch loop range as well):
+    # checkpoint = torch.load("/home/ajurgens/Brats2019/Model_Saves_V4/Fold_1_Epoch_140.tar")
+    # model.load_state_dict(checkpoint['model_state_dict'])
 
     # Loss and optimizer
     criterion = GeneralizedDiceLoss(1e-5, None, None, False).cuda()
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=10**-7)
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay=10 ** -7)
     model.cuda()
 
-    #If training was interrupted (need to change epoch loop range as well):
-    #model.train()
+    # If training was interrupted (need to change epoch loop range as well):
+    model.train()
 
     for epoch in range(1, max_epochs + 1):
         start_time = time.time()
@@ -197,7 +199,8 @@ for fold in kf.split(folder_paths):
 
             # Save images of network output every 100 iterations
             if (iter_nr % 100 == 0):
-                subplot_img = gen_subplot(batch_orig[0], batch[0], labels[0], output[0], epoch, iter_nr, augmentation_parameters)
+                subplot_img = gen_subplot(batch_orig[0], batch[0], labels[0], output[0], epoch, iter_nr,
+                                          augmentation_parameters)
                 writer.add_image('{}'.format(run_name), subplot_img, iter_nr)
 
             masks = expand_as_one_hot(masks, n_classes)
@@ -216,6 +219,7 @@ for fold in kf.split(folder_paths):
         writer.add_scalar('TrainPE Fold {}'.format(fold_nr), train_loss_ep, epoch)
         valid_losses = []
         with torch.no_grad():
+            model.eval()
             for batch, labels in valid_loader:
                 scans, masks = batch.cuda(), labels.cuda()
                 output = model(scans)
@@ -227,12 +231,28 @@ for fold in kf.split(folder_paths):
         writer.add_scalar('Valid Loss per Epoch', valid_loss_ep, epoch)
         elapsed_time = time.time() - start_time
 
-        print('Fold [{}/{}], Epoch [{}/{}], Train Loss {:.10f}, Valid Loss {:.10f}, Time_{}'.format(fold_nr, n_folds, epoch, max_epochs, train_loss_ep, valid_loss_ep, time.strftime("%H:%M:%S", time.gmtime(elapsed_time))))
+        print('Fold [{}/{}], Epoch [{}/{}], Train Loss {:.10f}, Valid Loss {:.10f}, Time_{}'.format(fold_nr, n_folds,
+                                                                                                    epoch, max_epochs,
+                                                                                                    train_loss_ep,
+                                                                                                    valid_loss_ep,
+                                                                                                    time.strftime(
+                                                                                                        "%H:%M:%S",
+                                                                                                        time.gmtime(
+                                                                                                            elapsed_time))))
         losses = open("{}/Losses/{}.txt".format(save_model_path, run_name), "a")
-        losses.write('Fold [{}/{}], Epoch [{}/{}], Train Loss {:.10f}, Valid Loss {:.10f}, Time {}\n'.format(fold, n_folds,epoch, max_epochs,train_loss_ep,valid_loss_ep,time.strftime("%H:%M:%S",time.gmtime(elapsed_time))))
+        losses.write(
+            'Fold [{}/{}], Epoch [{}/{}], Train Loss {:.10f}, Valid Loss {:.10f}, Time {}\n'.format(fold, n_folds,
+                                                                                                    epoch, max_epochs,
+                                                                                                    train_loss_ep,
+                                                                                                    valid_loss_ep,
+                                                                                                    time.strftime(
+                                                                                                        "%H:%M:%S",
+                                                                                                        time.gmtime(
+                                                                                                            elapsed_time))))
         losses.close()
 
         # Save the model parameters
         if (epoch % 10 == 0):
-            torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, "{}/Fold_{}_Epoch_{}.tar".format(save_model_path, fold_nr, epoch))
+            torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
+                       "{}/Fold_{}_Epoch_{}.tar".format(save_model_path, fold_nr, epoch))
     fold_nr = fold_nr + 1
