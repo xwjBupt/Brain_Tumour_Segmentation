@@ -3,6 +3,8 @@ from skimage.transform import resize
 import nibabel as nib
 import numpy as np
 import sys
+import glob
+from tqdm import tqdm
 
 ########################################################################################################################
 # Code for preprocessing all of the scans and storing them in numpy arrays. Done so that preprocessing wouldn't be
@@ -20,38 +22,40 @@ import sys
 # OUTPUT:
 #   Preprocessed data stored in compressed npz files in the save_preprocessed_path
 ########################################################################################################################
-state = 'LGG'
-raw_data_path = '/home/xwj/Brats2018/' + state
-save_preprocessed_data_path = '/home/xwj/Brats2018/processed'
-crop_data = 0
-train_data = int(1)
 
+
+dataset = 'Brats20'
+if dataset == 'Brats19':
+    raw_data_path = '/data/xwj_work/Brats2019/raw/MICCAI_BraTS_2019_Data_Training/'
+    save_preprocessed_data_path = '/data/xwj_work/Brats2019/train/'
+elif dataset == 'Brats18':
+    raw_data_path = '/data/xwj_work/Brats2018/'
+    save_preprocessed_data_path = '/data/xwj_work/Brats2018/train/'
+elif dataset == 'Brats20':
+    raw_data_path = '/data/xwj_work/Brats2020/'
+    save_preprocessed_data_path = '/data/xwj_work/Brats2020/train/'
+
+crop_data = True
+train_data = True
+if dataset != 'Brats20':
+    subdirs = glob.glob(raw_data_path + 'HGG/*') + glob.glob(raw_data_path + 'LGG/*')
+else:
+    subdirs = glob.glob(raw_data_path + '/raw/BraTS*')
 # Create the folder to store preprocessed data in, exit if folder already exists.
 if not os.path.isdir(save_preprocessed_data_path):
     os.mkdir(save_preprocessed_data_path)
-
-# Get folder paths and ids of where the raw scans are stored
-folder_paths = []
-folder_IDS = []
-for subdir in os.listdir(raw_data_path):
-    folder_paths.append(os.path.join(raw_data_path, subdir))
-    folder_IDS.append(subdir)
-
-i = 1
-for patient in range(len(folder_paths)):
-    data_folder = folder_paths[patient]
-    data_id = folder_IDS[patient]
-    os.makedirs(os.path.join(save_preprocessed_data_path, data_id + '_' + state), exist_ok=True)
-
+for subdir in tqdm(subdirs):
+    # print (subdir)
     # Load in the the different modalities
-    img_t1 = nib.load(os.path.join(data_folder, data_id) + "_t1.nii.gz").get_fdata()
-    img_t1ce = nib.load(os.path.join(data_folder, data_id) + "_t1ce.nii.gz").get_fdata()
-    img_t2 = nib.load(os.path.join(data_folder, data_id) + "_t2.nii.gz").get_fdata()
-    img_flair = nib.load(os.path.join(data_folder, data_id) + "_flair.nii.gz").get_fdata()
+    print(subdir)
+    img_t1 = nib.load(glob.glob(subdir + "/*_t1.nii.gz")[0]).get_fdata()
+    img_t1ce = nib.load(glob.glob(subdir + "/*_t1ce.nii.gz")[0]).get_fdata()
+    img_t2 = nib.load(glob.glob(subdir + "/*_t2.nii.gz")[0]).get_fdata()
+    img_flair = nib.load(glob.glob(subdir + "/*_flair.nii.gz")[0]).get_fdata()
 
     # If preprocessing training data, load in the segmentation label image too
     if train_data:
-        img_seg = nib.load(os.path.join(data_folder, data_id) + "_seg.nii.gz").get_fdata().astype('long')
+        img_seg = nib.load(glob.glob(subdir + "/*_seg.nii.gz")[0]).get_fdata().astype('long')
         img_seg[img_seg == 4] = 3  # Replace label 4 with label 3
 
     h, w, d = img_t1.shape
@@ -124,12 +128,3 @@ for patient in range(len(folder_paths)):
     if train_data:
         save_mask = save_preprocessed_data_path + subdir.split('/')[-1] + '_mask'
         np.savez_compressed(save_mask, data=img_seg)
-
-    np.savez_compressed(
-        "{}/{}/{}_scans".format(save_preprocessed_data_path, data_id + '_' + state, data_id + '_' + state), data=X)
-    if train_data:
-        np.savez_compressed(
-            "{}/{}/{}_mask".format(save_preprocessed_data_path, data_id + '_' + state, data_id + '_' + state),
-            data=img_seg)
-    print("Preprocessed patient {}/{} scans".format(i, len(folder_paths)))
-    i = i + 1
