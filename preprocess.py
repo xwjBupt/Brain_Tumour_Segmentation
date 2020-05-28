@@ -5,6 +5,7 @@ import numpy as np
 import sys
 import glob
 from tqdm import tqdm
+import pdb
 
 ########################################################################################################################
 # Code for preprocessing all of the scans and storing them in numpy arrays. Done so that preprocessing wouldn't be
@@ -24,26 +25,47 @@ from tqdm import tqdm
 ########################################################################################################################
 
 
-dataset = 'Brats20'
-if dataset == 'Brats19':
+crop_data = False
+
+dataset = 'Brats18val'
+
+if dataset == 'Brats19train':
     raw_data_path = '/data/xwj_work/Brats2019/raw/MICCAI_BraTS_2019_Data_Training/'
     save_preprocessed_data_path = '/data/xwj_work/Brats2019/train/'
-elif dataset == 'Brats18':
-    raw_data_path = '/data/xwj_work/Brats2018/'
-    save_preprocessed_data_path = '/data/xwj_work/Brats2018/train/'
-elif dataset == 'Brats20':
-    raw_data_path = '/data/xwj_work/Brats2020/'
-    save_preprocessed_data_path = '/data/xwj_work/Brats2020/train/'
+    subdirs = glob.glob(raw_data_path + '/HGG/*') + glob.glob(raw_data_path + '/LGG/*')
+    train_data = True
+elif dataset == 'Brats19val':
+    raw_data_path = '/data/xwj_work/Brats2019/raw/MICCAI_BraTS_2019_Data_Validation/'
+    save_preprocessed_data_path = '/data/xwj_work/Brats2019/val/'
+    subdirs = glob.glob(raw_data_path + '/Brats*') + glob.glob(raw_data_path + '/Brats*')
+    train_data = False
 
-crop_data = True
-train_data = True
-if dataset != 'Brats20':
+elif dataset == 'Brats18train':
+    raw_data_path = '/data/xwj_work/Brats2018/'
+    save_preprocessed_data_path = '/data/xwj_work/Brats2018/train_nocrop/'
     subdirs = glob.glob(raw_data_path + 'HGG/*') + glob.glob(raw_data_path + 'LGG/*')
-else:
-    subdirs = glob.glob(raw_data_path + '/raw/BraTS*')
+    train_data = True
+elif dataset == 'Brats18val':
+    raw_data_path = '/data/xwj_work/Brats2018/MICCAI_BraTS_2018_Data_Validation/'
+    save_preprocessed_data_path = '/data/xwj_work/Brats2018/val_nocrop/'
+    subdirs = glob.glob(raw_data_path + '/Brats*')
+    train_data = False
+
+elif dataset == 'Brats20train':
+    raw_data_path = '/data/xwj_work/Brats2020/raw'
+    save_preprocessed_data_path = '/data/xwj_work/Brats2020/train/'
+    subdirs = glob.glob(raw_data_path + '/Brats*')
+    train_data = True
+pdb.set_trace()
+# elif dataset == 'Brats20val':
+#     raw_data_path = '/data/xwj_work/Brats2020/'
+#     save_preprocessed_data_path = '/data/xwj_work/Brats2020/train/'
+#     subdirs = glob.glob(raw_data_path + '/Brats*')
+#     train_data = False
+
 # Create the folder to store preprocessed data in, exit if folder already exists.
-if not os.path.isdir(save_preprocessed_data_path):
-    os.mkdir(save_preprocessed_data_path)
+os.makedirs(save_preprocessed_data_path,exist_ok=True)
+
 for subdir in tqdm(subdirs):
     # print (subdir)
     # Load in the the different modalities
@@ -98,6 +120,7 @@ for subdir in tqdm(subdirs):
             zmin = zmin - 1
         if zmin == 0:
             zmax = zmax + 1
+
     nozero = {'h': [rmin, rmax + 1], 'w': [cmin, cmax + 1], 'd': [zmin, zmax + 1]}
     # Crop the images to only keep bounding box area of the brain, with the bounding box atleast 128 length in each dimension
     if crop_data:
@@ -123,8 +146,8 @@ for subdir in tqdm(subdirs):
         new_img[brain_region] = (new_img[brain_region] - Minimum) / Range  # Scale to be between 0 and 1
         X.append(new_img.astype('float32'))
 
-    save_scans = save_preprocessed_data_path + subdir.split('/')[-1] + '_scans'
-    np.savez_compressed(save_scans, data=X)
+    save_scans = save_preprocessed_data_path + subdir.split('/')[-1] + '_scans.npz'
+    np.savez_compressed(save_scans, data=X, nozero=nozero)
     if train_data:
-        save_mask = save_preprocessed_data_path + subdir.split('/')[-1] + '_mask'
-        np.savez_compressed(save_mask, data=img_seg)
+        save_mask = save_preprocessed_data_path + subdir.split('/')[-1] + '_mask.npz'
+        np.savez_compressed(save_mask, data=img_seg, nozero=nozero)

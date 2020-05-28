@@ -3,7 +3,7 @@ from torch.utils import data
 import random
 import glob
 import os
-
+import pdb
 
 ##########################################################################
 # Dataset class that feeds data into a data generator.
@@ -19,32 +19,40 @@ import os
 
 
 class Dataset(data.Dataset):
-    def __init__(self, folder_path, folder_id, seg_provided=True):
-        self.folder_paths = folder_path
-        self.folder_ids = folder_id
+    def __init__(self, folder_ids, seg_provided=True, nozero=True):
+        self.folder_ids = folder_ids
         self.seg_provided = seg_provided
+        self.nozero = nozero
 
     def __len__(self):
         return len(self.folder_ids)
 
     def __getitem__(self, index):
-        data_folder = self.folder_paths[index]
         data_id = self.folder_ids[index]
-        X = np.load(glob.glob(r"{}/{}*_scans.npz".format(data_folder, data_id))[0])['data']
+        X = np.load(data_id)['data']
+        nozero_range = np.load(data_id)['nozero'].item()
         x_orig, y_orig, z_orig = 0, 0, 0
+        x_stop, y_stop, z_stop = X.shape[1], X.shape[2], X.shape[3]
 
-        # Randomly sample 128x128x128 patch
-        if (X.shape[1] > 128):
-            x_orig = random.sample(range(X.shape[1] - 127), 1)[0]
-        if (X.shape[2] > 128):
-            y_orig = random.sample(range(X.shape[2] - 127), 1)[0]
-        if (X.shape[3] > 128):
-            z_orig = random.sample(range(X.shape[3] - 127), 1)[0]
+        if self.nozero:
+            hmin, hmax = nozero_range['h'][0],nozero_range['h'][1]
+            wmin, wmax = nozero_range['w'][0],nozero_range['w'][1]
+            dmin, dmax = nozero_range['d'][0],nozero_range['d'][1]
+            x_orig, y_orig, z_orig = hmin, wmin, dmin
+            x_stop, y_stop, z_stop = hmax, wmax, dmax
 
-        X = X[:, x_orig: x_orig + 128, y_orig: y_orig + 128, z_orig: z_orig + 128]
+            # Randomly sample 128x128x128 patch
+            if ((x_stop - x_orig) > 128):
+                x_orig = random.sample(range(x_stop - 127), 1)[0]
+            if ((y_stop - y_orig) > 128):
+                y_orig = random.sample(range(y_stop - 127), 1)[0]
+            if ((z_stop - z_orig) > 128):
+                z_orig = random.sample(range(z_stop - 127), 1)[0]
+
+            X = X[:, x_orig: x_orig + 128, y_orig: y_orig + 128, z_orig: z_orig + 128]
 
         if self.seg_provided:
-            y = np.load(glob.glob(r"{}/{}*_mask.npz".format(data_folder, data_id))[0])['data']
+            y = np.load(data_id.replace('scans.npz', 'mask.npz'))['data']
             y = y[x_orig: x_orig + 128, y_orig: y_orig + 128, z_orig: z_orig + 128]
             return X, y
         else:
