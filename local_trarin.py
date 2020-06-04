@@ -29,7 +29,7 @@ import time
 # Specify Which Model and Loss to Import
 from models import UNet3D
 from losses import GeneralizedDiceLoss
-
+from HDCUnet import *
 
 #
 # def gen_subplot(scans_orig, scans_aug, mask, prediction, epoch_nr, name):
@@ -185,7 +185,7 @@ augmentations_to_use = ['Flip']  # 'Flip', 'Rotate', 'Gamma', 'Scale', 'Noise']
 timestamp = time.strftime("%m-%d_%H-%M", time.localtime())
 # Name of the run
 run_name = "temp_" + timestamp
-
+datasetname = 'Brats2018_val2019'
 # Training Parameters
 batch_size = 1
 params = {'batch_size': batch_size,
@@ -231,19 +231,27 @@ random.shuffle(folder_paths)
 # fold_nr = 1
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
-samples = len(folder_paths)
-val_num = int(samples * 0.2)
-train_num = samples - val_num
-print('creating %d for train %d for val' % (train_num, val_num))
-split = {}
-for i in range(n_folds):
-    f = {}
-    flodname = 'fold' + str(i + 1)
-    f['train'] = folder_paths[val_num:]
-    f['val'] = folder_paths[:val_num]
-    split[flodname] = f
-savename = 'Brats2018' + '@' + timestamp + '.npy'
-np.save(savename, split)
+
+if datasetname != 'Brats2018_val2019':
+    samples = len(folder_paths)
+    val_num = int(samples * 0.2)
+    train_num = samples - val_num
+    print('creating %d for train %d for val' % (train_num, val_num))
+    split = {}
+    for i in range(n_folds):
+        f = {}
+        flodname = 'fold' + str(i + 1)
+        f['train'] = folder_paths[val_num:]
+        f['val'] = folder_paths[:val_num]
+        split[flodname] = f
+    savename = 'Brats2018' + '@' + timestamp + '.npy'
+    np.save(savename, split)
+else:
+    split = {}
+    temptrainlist = glob.glob('/data/xwj_work/Brats2018/' + 'train/' + '*scans.npz')
+    tempvallist = glob.glob('/data/xwj_work/Brats2018/' + 'val2019/' + '*scans.npz')
+    split['fold_all'] = {'train': temptrainlist, 'val': tempvallist}
+
 for fold, files in split.items():
     iter_nr = 1
     train_idx = files['train']
@@ -254,7 +262,10 @@ for fold, files in split.items():
     valid_loader = data.DataLoader(valid_set, **params)
 
     # Model
-    model = UNet3D(in_channels, n_classes, False, base_n_filter, 'crg', 8)
+    #model = UNet3D(in_channels, n_classes, False, base_n_filter, 'crg', 8)
+
+    model = HDCUnetV2(in_channels=4, out_channels=4, init_channels=16, bias=False, skip=True, norm='G', act='relu',
+                    sig=True, gtcount=False, inside_skip='CAT')
     if torch.cuda.device_count() > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = nn.DataParallel(model)
@@ -356,11 +367,12 @@ for fold, files in split.items():
 
         # Save the model parameters
         if (epoch % 10 == 0):
-            if torch.cuda.device_count() > 1:
-                torch.save(
-                    {'model_state_dict': model.module.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
-                    "{}/Fold_{}_Epoch_{}.tar".format(save_model_path, fold, epoch))
-            else:
-                torch.save(
-                    {'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
-                    "{}/Fold_{}_Epoch_{}.tar".format(save_model_path, fold, epoch))
+            torch.save(model, "{}/Fold_{}_Epoch_{}.tar".format(save_model_path, fold, epoch))
+            # if torch.cuda.device_count() > 1:
+            #     torch.save(
+            #         {'model_state_dict': model.module.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
+            #         "{}/Fold_{}_Epoch_{}.tar".format(save_model_path, fold, epoch))
+            # else:
+            #     torch.save(
+            #         {'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
+            #         "{}/Fold_{}_Epoch_{}.tar".format(save_model_path, fold, epoch))
