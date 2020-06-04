@@ -9,6 +9,7 @@ from collections import OrderedDict
 from sys import argv
 import glob
 import pdb
+import torch.nn as nn
 
 ########################################################################################################################
 # Code to segment a set of scans after model has been trained. Segmentation obtained by ensemble averaging outputs of the
@@ -27,7 +28,7 @@ import pdb
 preprocessed_data_path = '/data/xwj_work/Brats2018/val_nocrop/'
 model_saves_path = '/data/xwj_work/Brain_Tumour_Segmentation/train_nocrop/'
 epoch_nrs = [300, 290, 280]  # Epoch at which to take the model saves (determined from loss plots)
-save_results_path = '/data/xwj_work/Brain_Tumour_Segmentation/val_nocrop_results/'
+save_results_path = '/data/xwj_work/Brain_Tumour_Segmentation/val_nocrop_sigmoid_results/'
 
 run_name = model_saves_path[model_saves_path.rindex("/") + 1:]
 save_results_path = os.path.join(save_results_path, run_name)
@@ -68,8 +69,11 @@ for idx in range(0, len(valist)):
         seg_results = []
         for fold in range(len(models)):
             output = models[fold](scans)
+            pdb.set_trace()
+            output = torch.sigmoid(output)
             output = output.squeeze()
             seg_results.append(output)
+        pdb.set_trace()
         seg_layer_avg = torch.mean(torch.stack(seg_results), dim=0)
         _, indices = seg_layer_avg.max(0)
         indices = indices.cpu().detach().numpy().astype('uint8')
